@@ -390,6 +390,20 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage {
         return _TOKEN_VERSION;
     }
 
+    // assumes msg.sender has already increased allowance sufficiently that transferFrom will succeed
+    function distribute(IERC20 coin, uint256 amount) external {
+        uint256 ts = this.totalSupply();
+        uint256 len = _balances.length();
+
+        for (uint256 i = 0; i < len; i++) {
+            (address a, uint256 b) = _balances.at(i);
+            uint256 p = (b * amount) / ts;
+            // doing 1 transferFrom to this contract and then N transfers might be more efficient than N transferFrom,
+            // but would result in this contract keeping the truncated remainders, which probably isn't what we want
+            require(coin.transferFrom(msg.sender, a, p));
+        }
+    }
+
     /**
      *  @notice ERC-20 overridden function that include logic to check for trade validity.
      *  Require that the msg.sender and to addresses are not frozen.
