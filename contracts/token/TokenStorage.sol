@@ -62,12 +62,16 @@
  */
 
 pragma solidity 0.8.17;
-import "../compliance/modular/IModularCompliance.sol";
-import "../registry/interface/IIdentityRegistry.sol";
+import '../compliance/modular/IModularCompliance.sol';
+import '../registry/interface/IIdentityRegistry.sol';
+
+import {EnumerableMap} from '@openzeppelin/contracts/utils/structs/EnumerableMap.sol';
 
 contract TokenStorage {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
     /// @dev ERC20 basic variables
-    mapping(address => uint256) internal _balances;
+    EnumerableMap.AddressToUintMap internal _balances;
     mapping(address => mapping(address => uint256)) internal _allowances;
     uint256 internal _totalSupply;
 
@@ -76,7 +80,7 @@ contract TokenStorage {
     string internal _tokenSymbol;
     uint8 internal _tokenDecimals;
     address internal _tokenOnchainID;
-    string internal constant _TOKEN_VERSION = "4.1.3";
+    string internal constant _TOKEN_VERSION = '4.1.3';
 
     /// @dev Variables of freeze and pause functions
     mapping(address => bool) internal _frozen;
