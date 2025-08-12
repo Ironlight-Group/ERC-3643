@@ -65,12 +65,14 @@ pragma solidity 0.8.30;
 import "../ERC-3643/IERC3643Compliance.sol";
 import "../ERC-3643/IERC3643IdentityRegistry.sol";
 import "./TokenStructs.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract TokenStorage {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     string internal constant _TOKEN_VERSION = "4.2.0";
     /// @dev ERC20 basic variables
-    mapping(address => uint256) internal _balances;
+    EnumerableMap.AddressToUintMap internal _balances;
     mapping(address => mapping(address => uint256)) internal _allowances;
     uint256 internal _totalSupply;
 

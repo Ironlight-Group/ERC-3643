@@ -74,11 +74,9 @@ import { IModule } from "../compliance/modular/modules/IModule.sol";
 import { IToken } from "../token/IToken.sol";
 import { IUtilityChecker } from "./IUtilityChecker.sol";
 
-
 contract UtilityChecker is IUtilityChecker, OwnableUpgradeable, UUPSUpgradeable {
-
     function initialize() external initializer {
-        __Ownable_init();
+        __Ownable_init(msg.sender);
     }
 
     /// @inheritdoc IUtilityChecker

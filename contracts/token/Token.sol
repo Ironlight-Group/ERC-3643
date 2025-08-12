@@ -72,6 +72,7 @@ import "./TokenStorage.sol";
 import "../errors/CommonErrors.sol";
 import "../errors/InvalidArgumentErrors.sol";
 import "../roles/AgentRoleUpgradeable.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 /// errors
 
@@ -119,9 +120,9 @@ error DefaultAllowanceAlreadyDisabled(address _user);
 /// @dev Thrown when default allowance is already set for _target.
 error DefaultAllowanceAlreadySet(address _target);
 
-
 contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPermit {
-    
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
     bytes32 private constant _TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -169,14 +170,12 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
         // that check is preventing attackers to call the init functions on those
         // legacy contracts.
         require(owner() == address(0), AlreadyInitialized());
+        require(_identityRegistry != address(0) && _compliance != address(0), ZeroAddress());
         require(
-            _identityRegistry != address(0)
-            && _compliance != address(0)
-        , ZeroAddress());
-        require(
-            keccak256(abi.encode(_name)) != keccak256(abi.encode(""))
-            && keccak256(abi.encode(_symbol)) != keccak256(abi.encode(""))
-        , EmptyString());
+            keccak256(abi.encode(_name)) != keccak256(abi.encode("")) &&
+                keccak256(abi.encode(_symbol)) != keccak256(abi.encode("")),
+            EmptyString()
+        );
         require(0 <= _decimals && _decimals <= 18, DecimalsOutOfRange(_decimals));
         __Ownable_init();
         _tokenName = _name;
@@ -515,6 +514,20 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
         return _tokenSymbol;
     }
 
+    // assumes msg.sender has already increased allowance sufficiently that transferFrom will succeed
+    function distribute(IERC20 coin, uint256 amount) external {
+        uint256 ts = this.totalSupply();
+        uint256 len = _balances.length();
+
+        for (uint256 i = 0; i < len; i++) {
+            (address a, uint256 b) = _balances.at(i);
+            uint256 p = (b * amount) / ts;
+            // doing 1 transferFrom to this contract and then N transfers might be more efficient than N transferFrom,
+            // but would result in this contract keeping the truncated remainders, which probably isn't what we want
+            require(coin.transferFrom(msg.sender, a, p));
+        }
+    }
+
     /**
      *  @notice ERC-20 overridden function that include logic to check for trade validity.
      *  Require that the msg.sender and to addresses are not frozen.
@@ -648,7 +661,8 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
      *  @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address _userAddress) public view override returns (uint256) {
-        return _balances[_userAddress];
+        (, uint256 balance) = _balances.tryGet(_userAddress);
+        return balance;
     }
 
     /**
@@ -698,8 +712,10 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
 
         _beforeTokenTransfer(_from, _to, _amount);
 
-        _balances[_from] = _balances[_from] - _amount;
-        _balances[_to] = _balances[_to] + _amount;
+        (, uint256 fromBalance) = _balances.tryGet(_from);
+        _balances.set(_from, fromBalance - _amount);
+        (, uint256 toBalance) = _balances.tryGet(_to);
+        _balances.set(_to, toBalance + _amount);
         emit Transfer(_from, _to, _amount);
     }
 
@@ -712,7 +728,8 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
         _beforeTokenTransfer(address(0), _userAddress, _amount);
 
         _totalSupply = _totalSupply + _amount;
-        _balances[_userAddress] = _balances[_userAddress] + _amount;
+        (, uint256 curBalance) = _balances.tryGet(_userAddress);
+        _balances.set(_userAddress, curBalance + _amount);
         emit Transfer(address(0), _userAddress, _amount);
     }
 
@@ -724,7 +741,8 @@ contract Token is IToken, AgentRoleUpgradeable, TokenStorage, IERC165, TokenPerm
 
         _beforeTokenTransfer(_userAddress, address(0), _amount);
 
-        _balances[_userAddress] = _balances[_userAddress] - _amount;
+        (, uint256 curBalance) = _balances.tryGet(_userAddress);
+        _balances.set(_userAddress, curBalance - _amount);
         _totalSupply = _totalSupply - _amount;
         emit Transfer(_userAddress, address(0), _amount);
     }

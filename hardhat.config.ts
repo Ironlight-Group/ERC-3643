@@ -5,6 +5,7 @@ import '@openzeppelin/hardhat-upgrades';
 import 'solidity-coverage';
 import '@nomiclabs/hardhat-solhint';
 import '@primitivefi/hardhat-dodoc';
+import 'hardhat-gas-reporter';
 
 const config: HardhatUserConfig = {
   solidity: {
